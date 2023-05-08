@@ -1,62 +1,59 @@
-import math
-def encrypt(text, key):
-    def cesar_inv(text, key):
-        cesar_enc = ""
-        for letra in text:
-            if letra.isalpha():
-                cesar_enc += chr((ord(letra) + key - 65) % 26 + 65)
+import random
+
+# Cifra de César
+def cesar(text, key):
+    cesar_enc = ""
+    for letra in text:
+        if letra.isalpha():
+            if letra.isupper():
+                cesar_enc += chr((ord(letra) - 65 + key) % 26 + 65)
             else:
-                cesar_enc += letra
-        return cesar_enc
+                cesar_enc += chr((ord(letra) - 97 + key) % 26 + 97)
+        else:
+            cesar_enc += letra
+    return cesar_enc
 
-    def rail(text, key):
-        rail_enc = ""
-        for i in range(key):
-            for j in range(i, len(text), key):
-                rail_enc += text[j]
-        return rail_enc
+# Vernam-Mauborgne
+def vernam(text, key):
+    vernam_enc = ""
+    for i in range(len(text)):
+        byte = ord(text[i]) ^ ord(key[i])
+        vernam_enc += chr(byte)
+    return vernam_enc
 
-    cesar_text = cesar_inv(text, key)
-    rail_text = rail(cesar_text, key)
-    return rail_text
-def decrypt(text, key):
-    def cesar_inv(text, key):
-        cesar_dec = ""
-        for letra in text:
-            if letra.isalpha():
-                cesar_dec += chr((ord(letra) - key - 65) % 26 + 65)
-            else:
-                cesar_dec += letra
-        return cesar_dec
+# Gera chave aleatória para Vernam-Mauborgne
+def generate_key(length):
+    key = ""
+    for i in range(length):
+        key += chr(random.randint(0, 255))
+    return key
 
-    # Desloca a mensagem criptografada de acordo com o número de linhas
-    n = len(text)
-    rail_len = key
-    n_rails = (n // (2 * rail_len - 2) + 1) if (n % (2 * rail_len - 2) != 0) else (n // (2 * rail_len - 2))
-    rail_seq = [0] * n
-    for i in range(n_rails):
-        for j in range(rail_len):
-            if i * (2 * rail_len - 2) + j < n:
-                rail_seq[i * (2 * rail_len - 2) + j] = j
-            if i * (2 * rail_len - 2) + (2 * rail_len - j - 2) < n:
-                rail_seq[i * (2 * rail_len - 2) + (2 * rail_len - j - 2)] = j
+# Camada 1: Cifra de César
+def layer1_encrypt(text, key):
+    return cesar(text, key)
 
-    # Divide a mensagem em blocos do tamanho de cada linha e ordena os blocos
-    rail_blocks = [''] * rail_len
-    for i in range(rail_len):
-        for j in range(n):
-            if rail_seq[j] == i:
-                rail_blocks[i] += text[j]
-    rail_text = ''.join(rail_blocks)
+def layer1_decrypt(text, key):
+    return cesar(text, -key)
 
-    # Aplica o inverso da cifra de César na mensagem desordenada
-    cesar_text = cesar_inv(rail_text, key)
+# Camada 2: Vernam-Mauborgne
+def layer2_encrypt(text, key):
+    vernam_key = generate_key(len(text))
+    return vernam(vernam(text, vernam_key), key), vernam_key
 
-    return cesar_text
+def layer2_decrypt(text, key, vernam_key):
+    return vernam(vernam(text, key), vernam_key)
 
-text = 'trabalho de sexta feira'
-key = 3
-enc = encrypt(text,key)
-print(enc)
-dec = decrypt(enc, key)
-print(dec)
+# Entrada
+text = "trabalho do lucas e do bruno"
+key1 = 5
+key2 = generate_key(len(text))
+
+# Criptografia
+layer1_enc = layer1_encrypt(text, key1)
+layer2_enc, vernam_key = layer2_encrypt(layer1_enc, key2)
+
+# Saída
+print("Texto original:", text)
+print("Texto criptografado:", layer2_enc)
+print("Chave de Vernam-Mauborgne:", [ord(c) for c in vernam_key])
+print("Texto descriptografado:", layer1_decrypt(layer2_decrypt(layer2_enc, key2, vernam_key), key1))
